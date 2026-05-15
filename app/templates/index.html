@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DeepShield · Deepfake Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0b;
+  --surface: #111113;
+  --surface-raised: #18181b;
+  --border: #27272a;
+  --border-light: #3f3f46;
+  --text: #fafafa;
+  --text-muted: #71717a;
+  --text-dim: #52525b;
+  --accent: #7c3aed;
+  --accent-light: #8b5cf6;
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,.12);
+  --green-border: rgba(34,197,94,.25);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,.12);
+  --red-border: rgba(239,68,68,.25);
+  --radius: 12px;
+  --radius-lg: 16px;
+}
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.page { max-width: 560px; margin: 0 auto; padding: 0 20px 80px; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 28px 0 48px; }
+.wordmark { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.wordmark-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-light); }
+
+#drop-zone { border: 1.5px dashed var(--border-light); border-radius: var(--radius-lg); padding: 52px 32px; text-align: center; cursor: pointer; background: var(--surface); transition: .2s; }
+#drop-zone:hover { border-color: var(--accent-light); }
+.dz-icon { font-size: 36px; margin-bottom: 16px; display: block; }
+
+#analysis-container { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.media-viewer { background: #0d0d0f; position: relative; display: flex; align-items: center; justify-content: center; min-height: 200px; max-height: 400px; border-bottom: 1px solid var(--border); }
+#preview-img, #preview-video, #heatmap-img { max-width: 100%; max-height: 400px; object-fit: contain; }
+#heatmap-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+
+.panel-section { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.panel-section:last-child { border-bottom: none; }
+
+.result-verdict { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.verdict-badge { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.verdict-badge.fake { background: var(--red-dim); color: var(--red); }
+.verdict-badge.real { background: var(--green-dim); color: var(--green); }
+.verdict-word { font-size: 22px; font-weight: 700; }
+.verdict-word.fake { color: var(--red); }
+.verdict-word.real { color: var(--green); }
+.conf-pill { font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; }
+.conf-pill.fake { background: var(--red-dim); color: var(--red); border: 1px solid var(--red-border); }
+.conf-pill.real { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+
+.heatmap-toggle { display: flex; align-items: center; gap: 12px; background: var(--surface-raised); border-radius: 8px; padding: 12px 16px; }
+.switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .4s; border-radius: 20px; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--accent); }
+input:checked + .slider:before { transform: translateX(14px); }
+
+.fusion-stats { margin-top: 20px; }
+.model-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 12px; }
+.model-bar-bg { flex: 1; height: 4px; background: var(--border); border-radius: 2px; margin: 0 12px; overflow: hidden; }
+.model-bar-fill { height: 100%; background: var(--accent-light); transition: width 1s ease; }
+
+#history-drawer { position: fixed; right: -320px; top: 0; width: 320px; height: 100vh; background: var(--surface); border-left: 1px solid var(--border); z-index: 1000; transition: 0.3s; display: flex; flex-direction: column; }
+#history-drawer.open { right: 0; box-shadow: -20px 0 40px rgba(0,0,0,0.5); }
+.history-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.history-item:hover { background: var(--surface-raised); }
+
+.btn-history-toggle { position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: white; border: none; cursor: pointer; z-index: 999; font-size: 20px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.loader-spinner { width: 36px; height: 36px; border: 2px solid var(--border-light); border-top-color: var(--accent-light); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <div class="wordmark"><div class="wordmark-dot"></div>DeepShield</div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div style="text-align: right;">
+        <div style="font-size: 12px; font-weight: 600;">{{ username }}</div>
+        <div style="font-size: 10px; color: var(--text-dim);">Authenticated</div>
+      </div>
+      <a href="{{ url_for('logout') }}" style="text-decoration: none; color: var(--text-muted); font-size: 12px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px;">Logout</a>
+    </div>
+  </header>
+
+  <div id="drop-zone">
+    <span class="dz-icon">📂</span>
+    <div style="font-weight: 600; margin-bottom: 4px;">Drop a file here</div>
+    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">or click to browse</div>
+    <button style="padding: 8px 16px; background: var(--surface-raised); border: 1px solid var(--border-light); border-radius: 6px; color: white; cursor: pointer;">Browse files</button>
+    <input type="file" id="file-input" style="display: none;" accept="image/*,video/*"/>
+  </div>
+
+  <div id="analysis-container">
+    <div class="media-viewer">
+      <img id="preview-img" style="display: none;"/><video id="preview-video" style="display: none;" controls muted></video>
+      <img id="heatmap-img" style="display: none;"/>
+    </div>
+    
+    <div id="panel-setup" class="panel-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div id="pv-name" style="font-weight: 600; font-size: 13px;"></div>
+        <button onclick="reset()" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Change</button>
+      </div>
+      <button id="btn-analyze" style="width: 100%; padding: 12px; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer;">Start Deep Analysis</button>
+    </div>
+
+    <div id="panel-loading" class="panel-section" style="display: none; text-align: center; padding: 40px;">
+      <div class="loader-spinner"></div>
+      <div style="font-weight: 600;">Processing...</div>
+      <div style="font-size: 12px; color: var(--text-muted);">Running Model Fusion</div>
+    </div>
+
+    <div id="panel-results" style="display: none;">
+      <div class="panel-section">
+        <div class="result-verdict">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div id="r-badge" class="verdict-badge"></div>
+            <div><div id="r-word" class="verdict-word"></div><div id="r-file" style="font-size: 12px; color: var(--text-muted);"></div></div>
+          </div>
+          <div id="r-conf" class="conf-pill"></div>
+        </div>
+        <div style="margin-top: 18px; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 12px; color: var(--text-muted);">Probability</span>
+          <div style="flex: 1; height: 5px; background: var(--border); border-radius: 10px; overflow: hidden;"><div id="r-bar" style="height: 100%; width: 0; transition: 1s;"></div></div>
+          <span id="r-pval" style="font-size: 12px; font-weight: 700;"></span>
+        </div>
+      </div>
+
+      <div class="panel-section" id="heatmap-control" style="display: none;">
+        <div class="heatmap-toggle">
+          <label class="switch"><input type="checkbox" id="heatmap-switch"><span class="slider"></span></label>
+          <span style="font-size: 13px; font-weight: 600;">Manipulation Heatmap</span>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 12px;">Model Contributions</div>
+        <div id="model-scores"></div>
+      </div>
+
+      <div class="panel-section" style="display: flex; justify-content: space-between; align-items: center;">
+        <span id="r-time" style="font-size: 11px; color: var(--text-dim);"></span>
+        <button onclick="reset()" style="padding: 6px 14px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px; color: white; cursor: pointer; font-size: 12px;">New Analysis</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="history-drawer">
+  <div style="padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+    <h2 style="font-size: 18px;">History</h2>
+    <button onclick="toggleHistory()" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer;">✕</button>
+  </div>
+  <div id="history-list" style="flex: 1; overflow-y: auto;"></div>
+</div>
+
+<button class="btn-history-toggle" onclick="toggleHistory()">📜</button>
+
+<script>
+let currentFile = null;
+
+function reset() {
+  currentFile = null;
+  document.getElementById('analysis-container').style.display = 'none';
+  document.getElementById('drop-zone').style.display = 'block';
+  document.getElementById('panel-setup').style.display = 'block';
+  document.getElementById('panel-results').style.display = 'none';
+  document.getElementById('heatmap-img').style.display = 'none';
+  document.getElementById('file-input').value = '';
+}
+
+function toggleHistory() {
+  const d = document.getElementById('history-drawer');
+  d.classList.toggle('open');
+  if (d.classList.contains('open')) loadHistory();
+}
+
+async function loadHistory() {
+  const res = await fetch('/history');
+  const data = await res.json();
+  document.getElementById('history-list').innerHTML = data.history.map(h => `
+    <div class="history-item">
+      <div style="font-size: 11px; color: var(--text-dim);">${new Date(h.timestamp).toLocaleDateString()}</div>
+      <div style="font-weight: 600;">${h.filename}</div>
+      <div style="font-size: 12px; color: ${h.verdict === 'FAKE' ? 'var(--red)' : 'var(--green)'}">${h.verdict} · ${h.confidence}%</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('drop-zone').onclick = () => document.getElementById('file-input').click();
+document.getElementById('file-input').onchange = (e) => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+};
+
+function handleFile(file) {
+  currentFile = file;
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('analysis-container').style.display = 'block';
+  document.getElementById('pv-name').textContent = file.name;
+  const url = URL.createObjectURL(file);
+  if (file.type.startsWith('image')) {
+    document.getElementById('preview-img').src = url;
+    document.getElementById('preview-img').style.display = 'block';
+    document.getElementById('preview-video').style.display = 'none';
+  } else {
+    document.getElementById('preview-video').src = url;
+    document.getElementById('preview-video').style.display = 'block';
+    document.getElementById('preview-img').style.display = 'none';
+  }
+}
+
+document.getElementById('btn-analyze').onclick = async () => {
+  document.getElementById('panel-setup').style.display = 'none';
+  document.getElementById('panel-loading').style.display = 'block';
+  const fd = new FormData();
+  fd.append('file', currentFile);
+  try {
+    const res = await fetch('/analyze', { method: 'POST', body: fd });
+    const data = await res.json();
+    document.getElementById('panel-loading').style.display = 'none';
+    if (data.error) alert(data.error); else renderResult(data.result);
+  } catch (e) { alert('Analysis failed'); reset(); }
+};
+
+function renderResult(r) {
+  const isFake = r.label === 'FAKE';
+  const cls = isFake ? 'fake' : 'real';
+  document.getElementById('panel-results').style.display = 'block';
+  document.getElementById('r-badge').textContent = isFake ? '⚠' : '✓';
+  document.getElementById('r-badge').className = 'verdict-badge ' + cls;
+  document.getElementById('r-word').textContent = r.label;
+  document.getElementById('r-word').className = 'verdict-word ' + cls;
+  document.getElementById('r-file').textContent = r.filename;
+  document.getElementById('r-conf').textContent = r.confidence + '% Confident';
+  document.getElementById('r-conf').className = 'conf-pill ' + cls;
+  document.getElementById('r-bar').style.width = r.fake_probability + '%';
+  document.getElementById('r-bar').style.backgroundColor = isFake ? 'var(--red)' : 'var(--green)';
+  document.getElementById('r-pval').textContent = r.fake_probability + '%';
+  document.getElementById('r-pval').style.color = isFake ? 'var(--red)' : 'var(--green)';
+  document.getElementById('r-time').textContent = 'Processed in ' + r.processing_ms + 'ms';
+
+  if (r.heatmap_url) {
+    document.getElementById('heatmap-control').style.display = 'block';
+    const hmImg = document.getElementById('heatmap-img');
+    hmImg.src = r.heatmap_url;
+    hmImg.style.display = 'block';
+    hmImg.style.opacity = 0;
+    document.getElementById('heatmap-switch').onchange = (e) => {
+      hmImg.style.opacity = e.target.checked ? 0.8 : 0;
+    };
+    
+    // Update heatmap text based on result
+    const heatmapText = document.querySelector('.heatmap-toggle span:last-child');
+    if (heatmapText) {
+      heatmapText.textContent = isFake ? 'Manipulation Heatmap' : 'Authentication Heatmap';
+    }
+  }
+  document.getElementById('model-scores').innerHTML = Object.entries(r.individual_scores).map(([name, score]) => `
+    <div class="model-row">
+      <span>${name}</span>
+      <div class="model-bar-bg"><div class="model-bar-fill" style="width: ${score}%; background: ${score > 50 ? 'var(--red)' : 'var(--accent-light)'}"></div></div>
+      <span style="font-weight: 700;">${score}%</span>
+    </div>
+  `).join('');
+}
+</script>
+</body>
+</html>

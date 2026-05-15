@@ -1,0 +1,208 @@
+@startuml UseCase
+title Système de Détection des Deepfakes - Use Case
+
+actor Utilisateur
+actor Administrateur
+
+rectangle "Système Deepfake Detection" {
+  usecase "Analyser Image"
+  usecase "Analyser Vidéo"
+  usecase "Entraîner Modèle"
+  usecase "Consulter Historique"
+  usecase "Gérer Utilisateurs"
+}
+
+Utilisateur --> "Analyser Image"
+Utilisateur --> "Analyser Vidéo"
+Utilisateur --> "Consulter Historique"
+Administrateur --> "Entraîner Modèle"
+Administrateur --> "Gérer Utilisateurs"
+
+@enduml
+
+' ========================================
+' DIAGRAMME DE SÉQUENCE - ANALYSE IMAGE
+' ========================================
+@startuml SequenceImage
+title Séquence - Analyse d'Image
+
+actor User
+participant Interface
+participant Media
+participant CNN
+participant Result
+
+User -> Interface: Upload image
+Interface -> Media: create_media()
+Media -> CNN: predict()
+CNN -> Result: classify()
+Result -> Interface: show_result()
+Interface -> User: "FAKE (87.3%)"
+
+@enduml
+
+' ========================================
+' DIAGRAMME DE SÉQUENCE - ANALYSE VIDÉO
+' ========================================
+@startuml SequenceVideo
+title Séquence - Analyse de Vidéo
+
+actor User
+participant Interface
+participant Media
+participant CNN
+participant VideoClassifier
+
+User -> Interface: Upload video
+Interface -> Media: create_media()
+Media -> CNN: extract_frames()
+loop Each frame
+    CNN -> CNN: predict_frame()
+end
+CNN -> VideoClassifier: aggregate()
+VideoClassifier -> Interface: final_result()
+Interface -> User: "FAKE (91.2%)"
+
+@enduml
+
+' ========================================
+' DIAGRAMME DE SÉQUENCE - ENTRAÎNEMENT MODÈLE
+' ========================================
+@startuml SequenceTraining
+title Séquence - Entraînement Modèle
+
+actor Admin
+participant Interface
+participant Dataset
+participant Model
+participant Trainer
+
+Admin -> Interface: start_training()
+Interface -> Dataset: load_data()
+Dataset -> Model: create_model()
+Model -> Trainer: train()
+loop Each epoch
+    Trainer -> Model: train_step()
+end
+Trainer -> Interface: training_complete()
+Interface -> Admin: "Accuracy: 94.2%"
+
+@enduml
+
+' ========================================
+' DIAGRAMME DE SÉQUENCE - INTERFACE WEB
+' ========================================
+@startuml SequenceWeb
+title Séquence - Interface Web
+
+actor User
+participant WebApp
+participant Auth
+participant DB
+
+User -> WebApp: login()
+WebApp -> Auth: authenticate()
+Auth -> DB: verify_user()
+DB -> Auth: user_data
+Auth -> WebApp: session
+WebApp -> User: dashboard
+
+User -> WebApp: upload_file()
+WebApp -> DB: save_analysis()
+WebApp -> User: show_result()
+
+@enduml
+
+' ========================================
+' DIAGRAMME DE CLASSES
+' ========================================
+@startuml ClassDiagram
+title Diagramme de Classes
+
+class User {
+  +id
+  +username
+  +login()
+  +view_history()
+}
+
+class Media {
+  +file_path
+  +media_type
+  +analyze()
+  +preprocess()
+}
+
+class CNNModel {
+  +architecture
+  +predict()
+  +train()
+}
+
+class Result {
+  +prediction
+  +confidence
+  +save()
+  +display()
+}
+
+User "1" -- "*" Media : uploads
+Media "1" -- "1" CNNModel : uses
+CNNModel "1" -- "1" Result : generates
+User "1" -- "*" Result : views
+
+@enduml
+
+' ========================================
+' DIAGRAMME D'ACTIVITÉ - PIPELINE COMPLET
+' ========================================
+@startuml ActivityDiagram
+title Pipeline d'Analyse
+
+start
+:Input Media;
+if (Image?) then (yes)
+  :Preprocess Image;
+  :Detect Face;
+else (no)
+  :Extract Frames;
+  :Process Frames;
+endif
+:CNN Prediction;
+:Classify Result;
+:Display to User;
+stop
+
+@enduml
+
+' ========================================
+' DIAGRAMME DE DÉPLOIEMENT
+' ========================================
+@startuml DeploymentDiagram
+title Architecture de Déploiement
+
+node "Client" {
+  artifact "Browser"
+  artifact "CLI"
+}
+
+node "Web Server" {
+  artifact "Flask App"
+}
+
+node "AI Server" {
+  artifact "CNN Models"
+}
+
+node "Database" {
+  artifact "SQLite"
+}
+
+Browser --> FlaskApp
+CLI --> FlaskApp
+FlaskApp --> SQLite
+FlaskApp --> "CNN Models" : API
+
+@enduml
+
+@enduml

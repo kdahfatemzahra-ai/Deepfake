@@ -1,0 +1,46 @@
+# Datasets
+Dataset/
+Dataset_Small/
+datasets/
+data/
+
+# Models and Weights
+models/
+Model/
+*.h5
+*.keras
+*.hdf5
+*.pb
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+logs/
+*.log
+
+# Uploads & Temporary Outputs
+uploads/
+cropped_images/
+Nouveau dossier/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Large Images and Media in Root
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.mp4
+/*.avi
